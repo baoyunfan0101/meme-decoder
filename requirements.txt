@@ -1,0 +1,19 @@
+torch
+transformers
+accelerate
+datasets
+evaluate
+tqdm
+numpy<2.0
+Pillow
+requests
+python-dotenv
+
+# OCR
+easyocr
+opencv-python-headless
+
+# Metrics
+bert-score
+rouge-score
+sacrebleu

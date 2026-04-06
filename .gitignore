@@ -1,0 +1,58 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.so
+
+# ===== Virtual Environments =====
+.venv/
+venv/
+env/
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== Data & Outputs =====
+data/raw/
+data/processed/
+!data/processed/.gitkeep
+outputs/
+!outputs/.gitkeep
+
+# ===== Models =====
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# ===== Caches =====
+.cache/
+huggingface/
+.pytest_cache/
+.mypy_cache/
+
+# ===== Logs =====
+*.log
+
+# ===== Build =====
+build/
+dist/
+*.egg-info/
+
+# ===== Environment Variables =====
+.env*
+!.env.example
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Archives =====
+*.zip
+*.tar
+*.gz
