@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-name", type=str, default=DEFAULT_MODEL_NAME)
 
     parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--bert-lang", type=str, default="en")
     parser.add_argument("--allow-download", action="store_true")
 
@@ -158,7 +159,11 @@ def main() -> None:
     references: List[str] = []
     post_ids: List[str] = []
 
-    for idx in tqdm(range(len(dataset)), desc="Evaluating"):
+    total = len(dataset)
+    if args.max_samples is not None:
+        total = min(total, args.max_samples)
+
+    for idx in tqdm(range(total), desc="Evaluating"):
         item = dataset[idx]
         pred = generate_one(
             processor=processor,
