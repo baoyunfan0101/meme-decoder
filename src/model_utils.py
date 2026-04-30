@@ -181,6 +181,7 @@ def load_processor_and_model(
     min_pixels: int | None = None,
     max_pixels: int | None = None,
     load_in_4bit: bool = False,
+    gradient_checkpointing: bool = False,
 ):
     if training_strategy not in TRAINING_STRATEGIES:
         raise ValueError(f"Unknown training strategy: {training_strategy}. Valid: {TRAINING_STRATEGIES}")
@@ -209,12 +210,19 @@ def load_processor_and_model(
             modules_to_save=module_suffixes(unfrozen_modules),
         )
 
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+        if hasattr(model, "config"):
+            model.config.use_cache = False
+
     summary = get_parameter_summary(model)
     print(f"Training strategy: {training_strategy}")
     if max_pixels is not None:
         print(f"Processor max_pixels: {max_pixels}")
     if load_in_4bit:
         print("Model loading: 4-bit quantized")
+    if gradient_checkpointing:
+        print("Gradient checkpointing: enabled")
     if unfrozen_modules:
         print("Unfrozen projector-related modules:")
         for name in unfrozen_modules:

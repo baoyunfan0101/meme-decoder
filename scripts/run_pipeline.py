@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-pixels", type=int, default=None)
     parser.add_argument("--max-pixels", type=int, default=None)
     parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--gradient-checkpointing", action="store_true")
 
     parser.add_argument("--allow-download", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Print the resolved command without executing it.")
@@ -177,6 +178,8 @@ def build_train_command(args: argparse.Namespace) -> list[str]:
         cmd.extend(["--max-pixels", str(args.max_pixels)])
     if args.load_in_4bit:
         cmd.append("--load-in-4bit")
+    if args.gradient_checkpointing:
+        cmd.append("--gradient-checkpointing")
 
     if args.save_name is not None:
         cmd.extend(["--save-name", args.save_name])

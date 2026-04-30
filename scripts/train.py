@@ -52,6 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-pixels", type=int, default=None)
     parser.add_argument("--max-pixels", type=int, default=None)
     parser.add_argument("--load-in-4bit", action="store_true")
+    parser.add_argument("--gradient-checkpointing", action="store_true")
 
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=1)
@@ -400,6 +401,7 @@ def main() -> None:
         min_pixels=args.min_pixels,
         max_pixels=args.max_pixels,
         load_in_4bit=args.load_in_4bit,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
     device = get_model_device(model)
     parameter_summary = get_parameter_summary(model)
@@ -447,6 +449,7 @@ def main() -> None:
     print(f"Strategy: {args.strategy}")
     print(f"Max pixels: {args.max_pixels}")
     print(f"Load in 4bit: {args.load_in_4bit}")
+    print(f"Gradient checkpointing: {args.gradient_checkpointing}")
     print(f"Loss: {args.loss}")
     print(f"Selection metric: {args.selection_metric}")
     print(f"Train size: {len(train_dataset)}")
@@ -471,6 +474,7 @@ def main() -> None:
         "min_pixels": args.min_pixels,
         "max_pixels": args.max_pixels,
         "load_in_4bit": args.load_in_4bit,
+        "gradient_checkpointing": args.gradient_checkpointing,
         "batch_size": args.batch_size,
         "epochs": args.epochs,
         "lr": args.lr,
