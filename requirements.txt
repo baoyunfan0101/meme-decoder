@@ -3,6 +3,7 @@ transformers
 accelerate
 peft
 bitsandbytes
+torchao>=0.16.0
 datasets
 evaluate
 gdown
