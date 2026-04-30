@@ -11,16 +11,20 @@ from pathlib import Path
 from src.config import PROJECT_ROOT, PROCESSED_DIR, OUTPUT_DIR
 from src.dataset import MemeCaptionDataset
 from src.metrics_utils import compute_generation_metrics
-from src.model_utils import load_processor_and_model, generate_one
+from src.model_utils import DEFAULT_MODEL_NAME, load_processor_and_model_for_inference, generate_one
+from src.prompt_utils import resolve_setting_name
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--model-path", type=str, required=True)
+    parser.add_argument("--model-path", type=str, default=None)
     parser.add_argument("--checkpoint-name", type=str, default=None)
     parser.add_argument("--eval-json", type=str, required=True)
-    parser.add_argument("--setting", type=str, required=True)
+    parser.add_argument("--setting", type=str, default=None)
+    parser.add_argument("--input-setting", type=str, default=None, help="Input setting alias: 1, 2, 3, 4, or 5.")
+    parser.add_argument("--strategy", type=str, default="projector-only", choices=["zero-shot", "projector-only", "projector-lora"])
+    parser.add_argument("--model-name", type=str, default=DEFAULT_MODEL_NAME)
 
     parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--bert-lang", type=str, default="en")
@@ -101,20 +105,48 @@ def make_save_name(
 
 def main() -> None:
     args = parse_args()
+    if args.setting is None and args.input_setting is None:
+        raise ValueError("Provide either --setting or --input-setting.")
+    args.setting = resolve_setting_name(args.input_setting if args.input_setting is not None else args.setting)
 
-    checkpoint_path = resolve_model_checkpoint(args.model_path, args.checkpoint_name)
+    checkpoint_path = None
+    if args.strategy != "zero-shot":
+        if args.model_path is None:
+            raise ValueError("--model-path is required unless --strategy zero-shot is used.")
+        checkpoint_path = resolve_model_checkpoint(args.model_path, args.checkpoint_name)
+
     eval_json = resolve_processed_path(args.eval_json)
 
     save_dir = resolve_save_dir(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / make_save_name(
-        checkpoint_path=checkpoint_path,
+        checkpoint_path=checkpoint_path if checkpoint_path is not None else Path(args.model_name),
         eval_json=eval_json,
         setting=args.setting,
         save_name=args.save_name,
     )
 
-    processor, model = load_processor_and_model(str(checkpoint_path))
+    if args.strategy == "zero-shot":
+        processor, model = load_processor_and_model_for_inference(
+            model_name=args.model_name,
+            training_strategy=args.strategy,
+            adapter_path=None,
+        )
+        model_path_for_payload = args.model_name
+    elif args.strategy == "projector-lora":
+        processor, model = load_processor_and_model_for_inference(
+            model_name=args.model_name,
+            training_strategy=args.strategy,
+            adapter_path=str(checkpoint_path),
+        )
+        model_path_for_payload = str(checkpoint_path)
+    else:
+        processor, model = load_processor_and_model_for_inference(
+            model_name=str(checkpoint_path),
+            training_strategy=args.strategy,
+            adapter_path=None,
+        )
+        model_path_for_payload = str(checkpoint_path)
 
     dataset = MemeCaptionDataset(
         json_path=eval_json,
@@ -147,7 +179,9 @@ def main() -> None:
     )
 
     payload: Dict[str, Any] = {
-        "model_path": str(checkpoint_path),
+        "model_path": model_path_for_payload,
+        "base_model_name": args.model_name,
+        "strategy": args.strategy,
         "eval_json": eval_json,
         "setting": args.setting,
         "metrics": metrics,

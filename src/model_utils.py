@@ -23,6 +23,18 @@ PROJECTOR_NAME_KEYWORDS = (
     "projector",
 )
 
+TRAINING_STRATEGIES = ("zero-shot", "projector-only", "projector-lora")
+
+DEFAULT_LORA_TARGET_MODULES = (
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+)
+
 
 def freeze_all_parameters(model) -> None:
     for param in model.parameters():
@@ -62,6 +74,54 @@ def unfreeze_projector_only(model) -> List[str]:
     return sorted(set(matched_module_names))
 
 
+def apply_lora_adapters(
+    model,
+    r: int = 16,
+    alpha: int = 32,
+    dropout: float = 0.05,
+    target_modules: Tuple[str, ...] = DEFAULT_LORA_TARGET_MODULES,
+    modules_to_save: List[str] | None = None,
+):
+    try:
+        from peft import LoraConfig, get_peft_model
+    except ImportError as exc:
+        raise ImportError(
+            "projector-lora strategy requires the peft package. "
+            "Install dependencies with: pip install -r requirements.txt"
+        ) from exc
+
+    config = LoraConfig(
+        r=r,
+        lora_alpha=alpha,
+        lora_dropout=dropout,
+        bias="none",
+        task_type="CAUSAL_LM",
+        target_modules=list(target_modules),
+        modules_to_save=modules_to_save,
+    )
+    return get_peft_model(model, config)
+
+
+def module_suffixes(module_names: List[str]) -> List[str]:
+    suffixes = set()
+    for name in module_names:
+        if name:
+            suffixes.add(name.split(".")[-1])
+    return sorted(suffixes)
+
+
+def load_peft_adapters(model, adapter_path: str):
+    try:
+        from peft import PeftModel
+    except ImportError as exc:
+        raise ImportError(
+            "Loading a LoRA checkpoint requires the peft package. "
+            "Install dependencies with: pip install -r requirements.txt"
+        ) from exc
+
+    return PeftModel.from_pretrained(model, adapter_path)
+
+
 def get_parameter_summary(model) -> Dict[str, Any]:
     total_params = sum(param.numel() for param in model.parameters())
     trainable_params = sum(param.numel() for param in model.parameters() if param.requires_grad)
@@ -79,7 +139,23 @@ def get_parameter_summary(model) -> Dict[str, Any]:
     }
 
 
-def load_processor_and_model(model_name: str = DEFAULT_MODEL_NAME):
+def get_model_device(model) -> torch.device:
+    device = getattr(model, "device", None)
+    if device is not None:
+        return torch.device(device)
+    return next(model.parameters()).device
+
+
+def load_processor_and_model(
+    model_name: str = DEFAULT_MODEL_NAME,
+    training_strategy: str = "projector-only",
+    lora_r: int = 16,
+    lora_alpha: int = 32,
+    lora_dropout: float = 0.05,
+):
+    if training_strategy not in TRAINING_STRATEGIES:
+        raise ValueError(f"Unknown training strategy: {training_strategy}. Valid: {TRAINING_STRATEGIES}")
+
     processor = AutoProcessor.from_pretrained(model_name)
     model = AutoModelForImageTextToText.from_pretrained(
         model_name,
@@ -88,13 +164,55 @@ def load_processor_and_model(model_name: str = DEFAULT_MODEL_NAME):
     )
 
     freeze_all_parameters(model)
-    unfrozen_modules = unfreeze_projector_only(model)
+
+    unfrozen_modules: List[str] = []
+    if training_strategy in {"projector-only", "projector-lora"}:
+        unfrozen_modules = unfreeze_projector_only(model)
+
+    if training_strategy == "projector-lora":
+        model = apply_lora_adapters(
+            model=model,
+            r=lora_r,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            modules_to_save=module_suffixes(unfrozen_modules),
+        )
 
     summary = get_parameter_summary(model)
-    print("Unfrozen projector-related modules:")
-    for name in unfrozen_modules:
-        print(f"  - {name}")
+    print(f"Training strategy: {training_strategy}")
+    if unfrozen_modules:
+        print("Unfrozen projector-related modules:")
+        for name in unfrozen_modules:
+            print(f"  - {name}")
+    else:
+        print("No base model parameters unfrozen.")
     print(f"Trainable params: {summary['trainable_params']:,} / {summary['total_params']:,} ({summary['trainable_ratio']:.6f})")
+
+    return processor, model
+
+
+def load_processor_and_model_for_inference(
+    model_name: str = DEFAULT_MODEL_NAME,
+    training_strategy: str = "zero-shot",
+    adapter_path: str | None = None,
+):
+    processor_source = adapter_path if adapter_path is not None else model_name
+    processor = AutoProcessor.from_pretrained(processor_source)
+    model = AutoModelForImageTextToText.from_pretrained(
+        model_name,
+        torch_dtype="auto",
+        device_map="auto",
+    )
+
+    if adapter_path is not None:
+        model = load_peft_adapters(model, adapter_path)
+
+    freeze_all_parameters(model)
+    model.eval()
+
+    print(f"Inference strategy: {training_strategy}")
+    if adapter_path is not None:
+        print(f"Loaded adapter checkpoint: {adapter_path}")
 
     return processor, model
 
@@ -239,7 +357,7 @@ def generate_one(
         return_tensors="pt",
     )
 
-    inputs = move_batch_to_device(inputs, model.device)
+    inputs = move_batch_to_device(inputs, get_model_device(model))
 
     generated_ids = model.generate(
         **inputs,

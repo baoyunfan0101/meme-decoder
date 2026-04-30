@@ -24,9 +24,11 @@ from src.model_utils import (
     move_batch_to_device,
     collate_fn,
     get_parameter_summary,
+    get_model_device,
 )
 from src.dataset import MemeCaptionDataset
 from src.metrics_utils import compute_generation_metrics
+from src.prompt_utils import resolve_setting_name
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,8 +42,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fold-prefix", type=str, default="memes")
     parser.add_argument("--fold-suffix", type=str, default=".ocr.json")
 
-    parser.add_argument("--setting", type=str, required=True)
+    parser.add_argument("--setting", type=str, default=None)
+    parser.add_argument("--input-setting", type=str, default=None, help="Input setting alias: 1, 2, 3, 4, or 5.")
     parser.add_argument("--model-name", type=str, default=DEFAULT_MODEL_NAME)
+    parser.add_argument("--strategy", type=str, default="projector-only", choices=["projector-only", "projector-lora"])
+    parser.add_argument("--lora-r", type=int, default=16)
+    parser.add_argument("--lora-alpha", type=int, default=32)
+    parser.add_argument("--lora-dropout", type=float, default=0.05)
 
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=1)
@@ -70,6 +77,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def validate_data_args(args: argparse.Namespace) -> None:
+    if args.setting is None and args.input_setting is None:
+        raise ValueError("Provide either --setting or --input-setting.")
+    args.setting = resolve_setting_name(args.input_setting if args.input_setting is not None else args.setting)
+
     using_json_mode = args.train_json is not None
     using_fold_mode = args.train_folds is not None and len(args.train_folds) > 0
 
@@ -374,8 +385,14 @@ def main() -> None:
     save_dir = save_root / run_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    processor, model = load_processor_and_model(args.model_name)
-    device = model.device
+    processor, model = load_processor_and_model(
+        model_name=args.model_name,
+        training_strategy=args.strategy,
+        lora_r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+    )
+    device = get_model_device(model)
     parameter_summary = get_parameter_summary(model)
 
     train_dataset, train_loader = build_dataloader_from_paths(
@@ -417,6 +434,7 @@ def main() -> None:
         print(f"Val files: {val_paths}")
     print(f"Setting: {args.setting}")
     print(f"Model: {args.model_name}")
+    print(f"Strategy: {args.strategy}")
     print(f"Loss: {args.loss}")
     print(f"Selection metric: {args.selection_metric}")
     print(f"Train size: {len(train_dataset)}")
@@ -434,6 +452,10 @@ def main() -> None:
         "val_paths": val_paths,
         "setting": args.setting,
         "model_name": args.model_name,
+        "strategy": args.strategy,
+        "lora_r": args.lora_r,
+        "lora_alpha": args.lora_alpha,
+        "lora_dropout": args.lora_dropout,
         "batch_size": args.batch_size,
         "epochs": args.epochs,
         "lr": args.lr,

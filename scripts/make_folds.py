@@ -39,6 +39,12 @@ def parse_args():
         help="Output file prefix (default: derived from input filename)",
     )
     parser.add_argument(
+        "--suffix",
+        type=str,
+        default=None,
+        help="Output file suffix (default: derived from input filename)",
+    )
+    parser.add_argument(
         "--save-manifest",
         action="store_true",
         help="Save fold manifest file",
@@ -93,9 +99,9 @@ def build_manifest(folds: List[List[Dict[str, Any]]], seed: int):
     return manifest
 
 
-def infer_prefix_and_suffix(input_path: Path, prefix_arg: str | None):
+def infer_prefix_and_suffix(input_path: Path, prefix_arg: str | None, suffix_arg: str | None):
     if prefix_arg is not None:
-        return prefix_arg, ".json"
+        return prefix_arg, suffix_arg if suffix_arg is not None else ".json"
 
     name = input_path.name
     if name.endswith(".json"):
@@ -105,7 +111,7 @@ def infer_prefix_and_suffix(input_path: Path, prefix_arg: str | None):
         stem = name
         suffix = ""
 
-    return stem, suffix
+    return stem, suffix_arg if suffix_arg is not None else suffix
 
 
 def main():
@@ -119,7 +125,7 @@ def main():
 
     folds = split_folds(data, k=args.k, seed=args.seed)
 
-    prefix, suffix = infer_prefix_and_suffix(input_path, args.prefix)
+    prefix, suffix = infer_prefix_and_suffix(input_path, args.prefix, args.suffix)
 
     for i, fold_data in enumerate(folds, start=1):
         out_name = f"{prefix}-fold{i}{suffix}"

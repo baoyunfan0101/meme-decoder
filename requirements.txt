@@ -1,8 +1,10 @@
 torch
 transformers
 accelerate
+peft
 datasets
 evaluate
+gdown
 tqdm
 numpy<2.0
 Pillow

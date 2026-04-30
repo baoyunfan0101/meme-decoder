@@ -12,6 +12,22 @@ SETTINGS = {
     "meme_title_imgcap_ocr_rationale": ["title", "img_cap", "ocr", "rationale"],
 }
 
+INPUT_SETTING_ALIASES = {
+    "1": "meme_title",
+    "2": "meme_imgcap",
+    "3": "meme_title_imgcap",
+    "4": "meme_title_imgcap_ocr",
+    "5": "meme_title_imgcap_ocr_rationale",
+}
+
+
+def resolve_setting_name(setting_name: str) -> str:
+    resolved = INPUT_SETTING_ALIASES.get(str(setting_name), str(setting_name))
+    if resolved not in SETTINGS:
+        valid = sorted([*SETTINGS.keys(), *INPUT_SETTING_ALIASES.keys()])
+        raise ValueError(f"Unknown setting: {setting_name}. Valid settings: {valid}")
+    return resolved
+
 
 def format_img_captions(img_captions: List[str]) -> str:
     if not img_captions:
@@ -41,8 +57,7 @@ def get_target_text(record: Dict[str, Any]) -> str:
 
 
 def build_prompt(record: Dict[str, Any], setting_name: str) -> str:
-    if setting_name not in SETTINGS:
-        raise ValueError(f"Unknown setting: {setting_name}")
+    setting_name = resolve_setting_name(setting_name)
 
     enabled = SETTINGS[setting_name]
     parts = [
