@@ -49,6 +49,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lora-r", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
+    parser.add_argument("--min-pixels", type=int, default=None)
+    parser.add_argument("--max-pixels", type=int, default=None)
+    parser.add_argument("--load-in-4bit", action="store_true")
 
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=1)
@@ -391,6 +394,9 @@ def main() -> None:
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
+        min_pixels=args.min_pixels,
+        max_pixels=args.max_pixels,
+        load_in_4bit=args.load_in_4bit,
     )
     device = get_model_device(model)
     parameter_summary = get_parameter_summary(model)
@@ -435,6 +441,8 @@ def main() -> None:
     print(f"Setting: {args.setting}")
     print(f"Model: {args.model_name}")
     print(f"Strategy: {args.strategy}")
+    print(f"Max pixels: {args.max_pixels}")
+    print(f"Load in 4bit: {args.load_in_4bit}")
     print(f"Loss: {args.loss}")
     print(f"Selection metric: {args.selection_metric}")
     print(f"Train size: {len(train_dataset)}")
@@ -456,6 +464,9 @@ def main() -> None:
         "lora_r": args.lora_r,
         "lora_alpha": args.lora_alpha,
         "lora_dropout": args.lora_dropout,
+        "min_pixels": args.min_pixels,
+        "max_pixels": args.max_pixels,
+        "load_in_4bit": args.load_in_4bit,
         "batch_size": args.batch_size,
         "epochs": args.epochs,
         "lr": args.lr,

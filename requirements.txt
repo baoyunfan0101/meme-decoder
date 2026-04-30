@@ -2,6 +2,7 @@ torch
 transformers
 accelerate
 peft
+bitsandbytes
 datasets
 evaluate
 gdown

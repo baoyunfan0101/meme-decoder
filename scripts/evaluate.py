@@ -25,6 +25,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input-setting", type=str, default=None, help="Input setting alias: 1, 2, 3, 4, or 5.")
     parser.add_argument("--strategy", type=str, default="projector-only", choices=["zero-shot", "projector-only", "projector-lora"])
     parser.add_argument("--model-name", type=str, default=DEFAULT_MODEL_NAME)
+    parser.add_argument("--min-pixels", type=int, default=None)
+    parser.add_argument("--max-pixels", type=int, default=None)
+    parser.add_argument("--load-in-4bit", action="store_true")
 
     parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--max-samples", type=int, default=None)
@@ -132,6 +135,9 @@ def main() -> None:
             model_name=args.model_name,
             training_strategy=args.strategy,
             adapter_path=None,
+            min_pixels=args.min_pixels,
+            max_pixels=args.max_pixels,
+            load_in_4bit=args.load_in_4bit,
         )
         model_path_for_payload = args.model_name
     elif args.strategy == "projector-lora":
@@ -139,6 +145,9 @@ def main() -> None:
             model_name=args.model_name,
             training_strategy=args.strategy,
             adapter_path=str(checkpoint_path),
+            min_pixels=args.min_pixels,
+            max_pixels=args.max_pixels,
+            load_in_4bit=args.load_in_4bit,
         )
         model_path_for_payload = str(checkpoint_path)
     else:
@@ -146,6 +155,9 @@ def main() -> None:
             model_name=str(checkpoint_path),
             training_strategy=args.strategy,
             adapter_path=None,
+            min_pixels=args.min_pixels,
+            max_pixels=args.max_pixels,
+            load_in_4bit=args.load_in_4bit,
         )
         model_path_for_payload = str(checkpoint_path)
 
@@ -187,6 +199,9 @@ def main() -> None:
         "model_path": model_path_for_payload,
         "base_model_name": args.model_name,
         "strategy": args.strategy,
+        "min_pixels": args.min_pixels,
+        "max_pixels": args.max_pixels,
+        "load_in_4bit": args.load_in_4bit,
         "eval_json": eval_json,
         "setting": args.setting,
         "metrics": metrics,

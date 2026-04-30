@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import torch
 from PIL import Image
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 
 
 DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct"
@@ -146,21 +146,52 @@ def get_model_device(model) -> torch.device:
     return next(model.parameters()).device
 
 
+def build_processor_kwargs(min_pixels: int | None = None, max_pixels: int | None = None) -> Dict[str, int]:
+    kwargs: Dict[str, int] = {}
+    if min_pixels is not None:
+        kwargs["min_pixels"] = min_pixels
+    if max_pixels is not None:
+        kwargs["max_pixels"] = max_pixels
+    return kwargs
+
+
+def build_model_kwargs(load_in_4bit: bool = False) -> Dict[str, Any]:
+    kwargs: Dict[str, Any] = {
+        "torch_dtype": "auto",
+        "device_map": "auto",
+    }
+
+    if load_in_4bit:
+        kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+
+    return kwargs
+
+
 def load_processor_and_model(
     model_name: str = DEFAULT_MODEL_NAME,
     training_strategy: str = "projector-only",
     lora_r: int = 16,
     lora_alpha: int = 32,
     lora_dropout: float = 0.05,
+    min_pixels: int | None = None,
+    max_pixels: int | None = None,
+    load_in_4bit: bool = False,
 ):
     if training_strategy not in TRAINING_STRATEGIES:
         raise ValueError(f"Unknown training strategy: {training_strategy}. Valid: {TRAINING_STRATEGIES}")
 
-    processor = AutoProcessor.from_pretrained(model_name)
+    processor = AutoProcessor.from_pretrained(
+        model_name,
+        **build_processor_kwargs(min_pixels=min_pixels, max_pixels=max_pixels),
+    )
     model = AutoModelForImageTextToText.from_pretrained(
         model_name,
-        torch_dtype="auto",
-        device_map="auto",
+        **build_model_kwargs(load_in_4bit=load_in_4bit),
     )
 
     freeze_all_parameters(model)
@@ -180,6 +211,10 @@ def load_processor_and_model(
 
     summary = get_parameter_summary(model)
     print(f"Training strategy: {training_strategy}")
+    if max_pixels is not None:
+        print(f"Processor max_pixels: {max_pixels}")
+    if load_in_4bit:
+        print("Model loading: 4-bit quantized")
     if unfrozen_modules:
         print("Unfrozen projector-related modules:")
         for name in unfrozen_modules:
@@ -195,13 +230,18 @@ def load_processor_and_model_for_inference(
     model_name: str = DEFAULT_MODEL_NAME,
     training_strategy: str = "zero-shot",
     adapter_path: str | None = None,
+    min_pixels: int | None = None,
+    max_pixels: int | None = None,
+    load_in_4bit: bool = False,
 ):
     processor_source = adapter_path if adapter_path is not None else model_name
-    processor = AutoProcessor.from_pretrained(processor_source)
+    processor = AutoProcessor.from_pretrained(
+        processor_source,
+        **build_processor_kwargs(min_pixels=min_pixels, max_pixels=max_pixels),
+    )
     model = AutoModelForImageTextToText.from_pretrained(
         model_name,
-        torch_dtype="auto",
-        device_map="auto",
+        **build_model_kwargs(load_in_4bit=load_in_4bit),
     )
 
     if adapter_path is not None:
@@ -211,6 +251,10 @@ def load_processor_and_model_for_inference(
     model.eval()
 
     print(f"Inference strategy: {training_strategy}")
+    if max_pixels is not None:
+        print(f"Processor max_pixels: {max_pixels}")
+    if load_in_4bit:
+        print("Model loading: 4-bit quantized")
     if adapter_path is not None:
         print(f"Loaded adapter checkpoint: {adapter_path}")
 

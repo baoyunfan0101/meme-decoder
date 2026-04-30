@@ -50,6 +50,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lora-r", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
+    parser.add_argument("--min-pixels", type=int, default=None)
+    parser.add_argument("--max-pixels", type=int, default=None)
+    parser.add_argument("--load-in-4bit", action="store_true")
 
     parser.add_argument("--allow-download", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Print the resolved command without executing it.")
@@ -167,6 +170,13 @@ def build_train_command(args: argparse.Namespace) -> list[str]:
         str(args.lora_dropout),
     ]
 
+    if args.min_pixels is not None:
+        cmd.extend(["--min-pixels", str(args.min_pixels)])
+    if args.max_pixels is not None:
+        cmd.extend(["--max-pixels", str(args.max_pixels)])
+    if args.load_in_4bit:
+        cmd.append("--load-in-4bit")
+
     if args.save_name is not None:
         cmd.extend(["--save-name", args.save_name])
 
@@ -209,6 +219,13 @@ def build_eval_command(args: argparse.Namespace) -> list[str]:
         "--max-new-tokens",
         str(args.max_new_tokens),
     ]
+
+    if args.min_pixels is not None:
+        cmd.extend(["--min-pixels", str(args.min_pixels)])
+    if args.max_pixels is not None:
+        cmd.extend(["--max-pixels", str(args.max_pixels)])
+    if args.load_in_4bit:
+        cmd.append("--load-in-4bit")
 
     if args.strategy != "zero-shot":
         if args.model_path is None:
