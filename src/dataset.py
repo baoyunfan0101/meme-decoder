@@ -17,6 +17,7 @@ class MemeCaptionDataset(Dataset):
         json_path: str | Path | Sequence[str | Path],
         setting_name: str,
         allow_download: bool = False,
+        max_samples: int | None = None,
     ) -> None:
         self.setting_name = resolve_setting_name(setting_name)
         self.allow_download = allow_download
@@ -33,6 +34,9 @@ class MemeCaptionDataset(Dataset):
             if not isinstance(loaded, list):
                 raise TypeError(f"Dataset JSON must be a list of records: {path}")
             self.records.extend(loaded)
+
+        if max_samples is not None:
+            self.records = self.records[:max_samples]
 
     def __len__(self) -> int:
         return len(self.records)

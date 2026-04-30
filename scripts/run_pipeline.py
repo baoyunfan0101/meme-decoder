@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--grad-accum-steps", type=int, default=1)
     parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument("--train-max-samples", type=int, default=None)
     parser.add_argument("--eval-max-samples", type=int, default=None)
     parser.add_argument("--save-name", type=str, default=None)
 
@@ -182,6 +183,9 @@ def build_train_command(args: argparse.Namespace) -> list[str]:
 
     if args.eval_max_samples is not None:
         cmd.extend(["--eval-max-samples", str(args.eval_max_samples)])
+
+    if args.train_max_samples is not None:
+        cmd.extend(["--train-max-samples", str(args.train_max_samples)])
 
     if args.train_json is not None:
         cmd.extend(["--train-json", args.train_json])
