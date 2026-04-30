@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 from src.ocr_utils import load_json
 from src.path_utils import get_image_path_from_record
-from src.prompt_utils import build_prompt, get_target_text
+from src.prompt_utils import build_prompt, get_target_text, resolve_setting_name
 
 
 class MemeCaptionDataset(Dataset):
@@ -18,7 +18,7 @@ class MemeCaptionDataset(Dataset):
         setting_name: str,
         allow_download: bool = False,
     ) -> None:
-        self.setting_name = setting_name
+        self.setting_name = resolve_setting_name(setting_name)
         self.allow_download = allow_download
 
         if isinstance(json_path, (str, Path)):

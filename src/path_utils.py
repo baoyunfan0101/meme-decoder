@@ -43,6 +43,57 @@ def _download_file(url: str, save_path: str, timeout: int = 30) -> str:
     return save_path
 
 
+def get_download_image_path(record: Dict[str, Any]) -> Path:
+    img_fname = str(record.get("img_fname", "")).strip()
+    if img_fname:
+        return Path(_descend_into_memes_dirs(RAW_DIR)) / img_fname
+
+    post_id = str(record.get("post_id", "")).strip()
+    if not post_id:
+        raise ValueError("record must contain either 'img_fname' or 'post_id'")
+
+    url = str(record.get("url", "")).strip()
+    ext = _infer_extension_from_url(url, default_ext=".png")
+    return Path(_descend_into_memes_dirs(RAW_DIR)) / f"memes_{post_id}{ext}"
+
+
+def _candidate_image_paths(record: Dict[str, Any]) -> list[Path]:
+    raw_dir = Path(RAW_DIR).resolve()
+    memes_dir = Path(_descend_into_memes_dirs(RAW_DIR))
+
+    candidates: list[Path] = []
+
+    img_fname = str(record.get("img_fname", "")).strip()
+    if img_fname:
+        candidates.extend([
+            memes_dir / img_fname,
+            raw_dir / img_fname,
+            raw_dir / "memes" / img_fname,
+        ])
+
+    post_id = str(record.get("post_id", "")).strip()
+    if post_id:
+        url_ext = _infer_extension_from_url(str(record.get("url", "")).strip(), default_ext=".png")
+        candidates.extend([
+            memes_dir / f"memes_{post_id}.png",
+            memes_dir / f"memes_{post_id}{url_ext}",
+            raw_dir / f"memes_{post_id}.png",
+            raw_dir / f"memes_{post_id}{url_ext}",
+            raw_dir / "memes" / f"memes_{post_id}.png",
+            raw_dir / "memes" / f"memes_{post_id}{url_ext}",
+        ])
+
+    deduped: list[Path] = []
+    seen = set()
+    for path in candidates:
+        key = str(path)
+        if key not in seen:
+            deduped.append(path)
+            seen.add(key)
+
+    return deduped
+
+
 def get_image_path_from_record(
     record: Dict[str, Any],
     allow_download: bool = False,
@@ -54,17 +105,15 @@ def get_image_path_from_record(
     if not post_id:
         raise ValueError("record['post_id'] is empty")
 
-    memes_dir = _descend_into_memes_dirs(RAW_DIR)
-
-    filename = f"memes_{post_id}.png"
-    local_path = str(Path(memes_dir) / filename)
-
-    if Path(local_path).is_file():
-        return local_path
+    candidates = _candidate_image_paths(record)
+    for path in candidates:
+        if path.is_file():
+            return str(path)
 
     if not allow_download:
+        candidate_text = "\n".join(f"  - {path}" for path in candidates)
         raise FileNotFoundError(
-            f"Image not found locally: {local_path} (post_id={post_id})"
+            f"Image not found locally for post_id={post_id}. Checked:\n{candidate_text}"
         )
 
     url = str(record.get("url", "")).strip()
@@ -73,9 +122,7 @@ def get_image_path_from_record(
             f"No local image and no valid URL for post_id={post_id}"
         )
 
-    ext = _infer_extension_from_url(url, default_ext=".png")
-    download_name = f"memes_{post_id}{ext}"
-    download_path = str(Path(memes_dir) / download_name)
+    download_path = str(get_download_image_path(record))
 
     if Path(download_path).is_file():
         return download_path

@@ -75,6 +75,11 @@ def parse_args() -> argparse.Namespace:
         choices=["record", "raise"],
         help="How to handle OCR errors.",
     )
+    parser.add_argument(
+        "--allow-download",
+        action="store_true",
+        help="Download missing meme images from each record's url before OCR.",
+    )
 
     return parser.parse_args()
 
@@ -122,9 +127,11 @@ def main() -> None:
 
     enriched = enrich_dataset_with_ocr(
         records=records,
-        image_path_resolver=get_image_path_from_record,
+        image_path_resolver=lambda record: get_image_path_from_record(
+            record,
+            allow_download=args.allow_download,
+        ),
         processor=processor,
-        raw_dir=RAW_DIR,
         overwrite=args.overwrite,
         keep_ocr_items=args.keep_ocr_items,
         error_mode=args.error_mode,
