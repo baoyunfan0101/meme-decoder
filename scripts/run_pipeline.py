@@ -220,6 +220,9 @@ def build_eval_command(args: argparse.Namespace) -> list[str]:
     if args.save_name is not None:
         cmd.extend(["--save-name", args.save_name])
 
+    if args.eval_max_samples is not None:
+        cmd.extend(["--max-samples", str(args.eval_max_samples)])
+
     add_common_paths(cmd, args)
     return cmd
 
