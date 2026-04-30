@@ -69,6 +69,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save-dir", type=str, default="checkpoints")
     parser.add_argument("--save-name", type=str, default=None)
     parser.add_argument("--log-every", type=int, default=10)
+    parser.add_argument("--train-max-samples", type=int, default=None)
     parser.add_argument("--eval-max-samples", type=int, default=None)
     parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--allow-download", action="store_true")
@@ -196,11 +197,13 @@ def build_dataloader_from_paths(
     batch_size: int,
     shuffle: bool,
     allow_download: bool,
+    max_samples: Optional[int] = None,
 ):
     dataset = MemeCaptionDataset(
         json_path=json_paths,
         setting_name=setting_name,
         allow_download=allow_download,
+        max_samples=max_samples,
     )
 
     loader = DataLoader(
@@ -408,6 +411,7 @@ def main() -> None:
         batch_size=args.batch_size,
         shuffle=True,
         allow_download=args.allow_download,
+        max_samples=args.train_max_samples,
     )
 
     val_dataset = None
@@ -472,6 +476,7 @@ def main() -> None:
         "lr": args.lr,
         "weight_decay": args.weight_decay,
         "grad_accum_steps": args.grad_accum_steps,
+        "train_max_samples": args.train_max_samples,
         "max_grad_norm": args.max_grad_norm,
         "seed": args.seed,
         "loss": args.loss,
